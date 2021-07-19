@@ -8,8 +8,6 @@
 
 (define (help)
   (error 'Usage "hte -t <TEMPLATE> -i <INPUT-FILE>"))
-;(define read-define-block)
-;(define (read-define))
 (define (arguments args n)
   (if [< n 4] (help)
     (list
@@ -36,5 +34,36 @@
                     (let [(n (length (vector->list x)))]
                     (arguments x n))))]
     (if [string=? "template" (car (car var-list))]
-        (values (car var-list) (cadr var-list))
-        (values (cadr var-list) (car var-list)))))
+        (values (cadr (car var-list)) (cadr (cadr var-list)))
+        (values (cadr (cadr var-list)) (cadr (car var-list))))))
+
+(define (read-input-file lines name state)
+  (let [(clean-str (car (string-split (cadr lines))))]
+    (if [= state 1]
+      (if [string=? clean-str (string-append name "#")]
+          (car lines)
+          (string-append (car lines) (read-input-file (cdr lines) name state)))
+      (if [string=? clean-str (string-append "#" name)]
+          (read-input-file (cdr lines) name 1)
+          (read-input-file (cdr lines) name state)))))
+
+(define (attributes-to-html attributes)
+  (if [null? attributes]
+      ""
+      (string-append (string-append (car attributes) "=\"" (cadr attributes) "\""))))
+
+(define (text-to-html text type . attributes)
+ (let [(attr (car attributes))]
+  (string-append "<" type " " (attributes-to-html attr) ">" text (string-append "</" type ">"))))
+
+(define (read-define lines)
+  (let [(clean-str (string-split (car lines)))]
+    (if [string=? (car (string-split (cadr lines))) "define#"]
+        (list (car clean-str) (text-to-html (read-input-file (car clean-str)) (cadr clean-str) (cddr clean-str)))
+        (if [< (length (clean-str)) 2]
+            (error 'define "Wrong Definition of a variable")
+            (cons
+             (list (car clean-str) (text-to-html (read-input-file (file->lines input-file) (cadr clean-str) (cddr clean-str) 0)))
+             (read-define (cdr lines)))))))
+
+(read-define (file->lines template))
