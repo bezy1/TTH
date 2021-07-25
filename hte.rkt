@@ -38,10 +38,10 @@
         (values (cadr (cadr var-list)) (cadr (car var-list))))))
 
 (define (read-input-file lines name state)
-  (let [(clean-str (car (string-split (cadr lines))))]
+  (let [(clean-str (car (string-split (car lines))))]
     (if [= state 1]
       (if [string=? clean-str (string-append name "#")]
-          (car lines)
+          ""
           (string-append (car lines) (read-input-file (cdr lines) name state)))
       (if [string=? clean-str (string-append "#" name)]
           (read-input-file (cdr lines) name 1)
@@ -53,17 +53,20 @@
       (string-append (string-append (car attributes) "=\"" (cadr attributes) "\""))))
 
 (define (text-to-html text type . attributes)
- (let [(attr (car attributes))]
+ (let [(attr (and (pair? (car attributes)) (car attributes)))]
   (string-append "<" type " " (attributes-to-html attr) ">" text (string-append "</" type ">"))))
 
 (define (read-define lines)
   (let [(clean-str (string-split (car lines)))]
-    (if [string=? (car (string-split (cadr lines))) "define#"]
-        (list (car clean-str) (text-to-html (read-input-file (car clean-str)) (cadr clean-str) (cddr clean-str)))
-        (if [< (length (clean-str)) 2]
-            (error 'define "Wrong Definition of a variable")
+    (if (string=? (car clean-str) "define#")
+        (cdr lines)
+        (if (< (length clean-str) 2)
+            (error 'define "Wrong Variable Definition")
             (cons
-             (list (car clean-str) (text-to-html (read-input-file (file->lines input-file) (cadr clean-str) (cddr clean-str) 0)))
+             (text-to-html
+              (read-input-file (file->lines input-file) (car clean-str) 0) (cadr clean-str) (cddr clean-str))
              (read-define (cdr lines)))))))
 
-(read-define (file->lines template))
+
+
+(read-define (cdr (file->lines template)))
