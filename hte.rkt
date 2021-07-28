@@ -1,8 +1,9 @@
 #lang racket
 (require racket/string)
 (require racket/file)
-
-
+(require rebellion/collection/entry)
+(require rebellion/collection/hash)
+(require rebellion/streaming/reducer)
 
 
 
@@ -55,18 +56,43 @@
 (define (text-to-html text type . attributes)
  (let [(attr (and (pair? (car attributes)) (car attributes)))]
   (string-append "<" type " " (attributes-to-html attr) ">" text (string-append "</" type ">"))))
-
 (define (read-define lines)
   (let [(clean-str (string-split (car lines)))]
-    (if (string=? (car clean-str) "define#")
-        (cdr lines)
-        (if (< (length clean-str) 2)
+    (if [string=? (car clean-str) "define#"]
+        (list (entry "rest" (cdr lines)))
+        (if [< (length clean-str) 2]
             (error 'define "Wrong Variable Definition")
-            (cons
-             (text-to-html
-              (read-input-file (file->lines input-file) (car clean-str) 0) (cadr clean-str) (cddr clean-str))
-             (read-define (cdr lines)))))))
+              (cons
+               (entry
+                (car clean-str)
+                (text-to-html
+                 (read-input-file (file->lines input-file) (car clean-str) 0) (cadr clean-str) (cddr clean-str)))
+               (read-define (cdr lines)))))))
+(define (read-dynamic lines text defines)
+  (let [(clean-str (string-split (car lines)))]
+    (if [>  (length clean-str) 1]
+        (error 'reference "Wrong Variable Reference")
+        (if [string=? (car clean-str) "dynamic#"]
+            (cons text (list (cdr lines) ))
+              (read-dynamic (cdr lines)
+                          (string-append
+                           text
+                           (and
+                            ((andmap (lambda (x) (not(string=? x "jasim")))  (hash-keys defines)))
+                            (hash-ref defines (car clean-str))))
+                          defines)))))
+(define (read-static lines text)
+  (if [= (length lines) 0]
+      ""
+      (let [(clean-str (string-split (car lines)))]
+        (if [string=? (car clean-str) "#dynamic"]
+            (let [(dynamic (read-dynamic (cdr lines) text defines))]
+              (read-static (cadr dynamic) (car dynamic)))
+            (if [string=? (car clean-str) "static#"]
+                text
+                (read-static (cdr lines) (string-append text (car lines))))))))
 
 
 
-(read-define (cdr (file->lines template)))
+(define defines (for/reducer into-hash  ([entr (in-list (read-define (cdr (file->lines template))))]) entr))
+(read-static (file->lines template) "")
