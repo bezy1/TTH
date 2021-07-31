@@ -43,7 +43,7 @@
     (if [= state 1]
       (if [string=? clean-str (string-append name "#")]
           ""
-          (string-append (car lines) (read-input-file (cdr lines) name state)))
+          (string-append (car lines)  "\n" (read-input-file (cdr lines) name state) ))
       (if [string=? clean-str (string-append "#" name)]
           (read-input-file (cdr lines) name 1)
           (read-input-file (cdr lines) name state)))))
@@ -55,7 +55,7 @@
 
 (define (text-to-html text type . attributes)
  (let [(attr (and (pair? (car attributes)) (car attributes)))]
-  (string-append "<" type " " (attributes-to-html attr) ">" text (string-append "</" type ">"))))
+  (string-append "<" type " " (attributes-to-html attr) ">" text (string-append "</" type ">" "\n"))))
 (define (read-define lines)
   (let [(clean-str (string-split (car lines)))]
     (if [string=? (car clean-str) "define#"]
@@ -77,22 +77,28 @@
               (read-dynamic (cdr lines)
                           (string-append
                            text
-                           (and
-                            ((andmap (lambda (x) (not(string=? x "jasim")))  (hash-keys defines)))
-                            (hash-ref defines (car clean-str))))
+                           (or
+                            (and
+                            (not (andmap (lambda (x) (not(string=? x (car clean-str))))  (hash-keys defines)))
+                            (hash-ref defines (car clean-str)))
+                            (error 'reference "Variable is not defined")))
                           defines)))))
 (define (read-static lines text)
   (if [= (length lines) 0]
       ""
       (let [(clean-str (string-split (car lines)))]
-        (if [string=? (car clean-str) "#dynamic"]
+        (cond ([string=? (car clean-str) "#dynamic"]
             (let [(dynamic (read-dynamic (cdr lines) text defines))]
-              (read-static (cadr dynamic) (car dynamic)))
-            (if [string=? (car clean-str) "static#"]
-                text
-                (read-static (cdr lines) (string-append text (car lines))))))))
-
+              (read-static (cadr dynamic) (car dynamic))))
+            ([string=? (car clean-str) "static#"]
+                text)
+            (else
+                (read-static (cdr lines) (string-append text (format "~a~%" (car lines)))))))))
+(define (write-all text . path)
+  (if [null? path]
+      (display text (open-output-file "./file.html" #:mode 'text #:exists 'replace))
+      (display text (open-output-file (car path) 'text 'replace))))
 
 
 (define defines (for/reducer into-hash  ([entr (in-list (read-define (cdr (file->lines template))))]) entr))
-(read-static (file->lines template) "")
+(write-all (read-static (cdr (hash-ref defines "rest")) ""))
