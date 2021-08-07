@@ -1,9 +1,9 @@
 #lang racket
 (require racket/string)
 (require racket/file)
+(require rebellion/streaming/reducer)
 (require rebellion/collection/entry)
 (require rebellion/collection/hash)
-(require rebellion/streaming/reducer)
 
 
 
@@ -49,7 +49,7 @@
           (read-input-file (cdr lines) name state)))))
 
 (define (attributes-to-html attributes)
-  (if [null? attributes]
+  (if [false? attributes]
       ""
       (string-append (string-append (car attributes) "=\"" (cadr attributes) "\""))))
 
@@ -62,12 +62,12 @@
         (list (entry "rest" (cdr lines)))
         (if [< (length clean-str) 2]
             (error 'define "Wrong Variable Definition")
-              (cons
-               (entry
-                (car clean-str)
-                (text-to-html
-                 (read-input-file (file->lines input-file) (car clean-str) 0) (cadr clean-str) (cddr clean-str)))
-               (read-define (cdr lines)))))))
+            (cons
+             (entry
+              (car clean-str)
+              (text-to-html
+               (read-input-file (file->lines input-file) (car clean-str) 0) (cadr clean-str) (cddr clean-str)))
+             (read-define (cdr lines)))))))
 (define (read-dynamic lines text defines)
   (let [(clean-str (string-split (car lines)))]
     (if [>  (length clean-str) 1]
