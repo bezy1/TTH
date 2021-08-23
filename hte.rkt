@@ -8,46 +8,47 @@
 
 
 (define (help)
-  (error 'Usage "hte -t <TEMPLATE> -i <INPUT-FILE>"))
-(define (arguments args n)
-  (if [< n 4] (help)
-    (list
-      (or
-       (or
-        (and  (string=? "-t" (vector-ref args 0))
-              (and (file-exists? (vector-ref args 1)) (list "template" (vector-ref args 1))))
-        (and  (string=? "-i" (vector-ref args 0))
-              (and (file-exists? (vector-ref args 1)) (list "input-file" (vector-ref args 1)))))
-       (error 'File (format "~a Doesn't exist" (vector-ref args 1))))
-      (or
-       (or
-        (and  (string=? "-t" (vector-ref args 2))
-              (and (file-exists? (vector-ref args 3)) (list "template" (vector-ref args 3))))
-        (and  (string=? "-i" (vector-ref args 2))
-              (and (file-exists? (vector-ref args 3)) (list "input-file" (vector-ref args 3)))))
-       (error 'File (format "~a Doesn't exist" (vector-ref args 3))))
-      )))
+  (error 'Usage "hte -t <TEMPLATE> -i <INPUT-FILE> -o <File-Name>"))
+(define (arguments args args-number)
+  (if [null? args]
+	(make-hash)
+	(if [< n 4] 
+		 (if [even? args-number]
+		   (hash-union
+			 (cond  [(string=? (car args) "-t") 
+				   (if [file-exists? (cadr args)] (make-immutable-hash (car args) (cadr args)) (error 'File (format "~a Doesn't Exist" (cadr args))))]
+				  [(string=? (car args) "-i") 
+				   (if [file-exists? (cadr args)] (make-immutable-hash (car args) (cadr args)) (error 'File (format "~a Doesn't Exist" (cadr args))))]
+				  [(string=? (car args) "-o") (make-immutable-hash (car args) (cadr args))]))
+			 (arguments (cdr args-list) args-number))
+		 (help))))
 
+		 	
 ; If The First Element of the list is the template file return the list
 ; other wise flip the list and return it
-(define-values (template input-file)
-  (let [(var-list (let [(x (current-command-line-arguments))]
-                    (let [(n (length (vector->list x)))]
-                    (arguments x n))))]
-    (if [string=? "template" (car (car var-list))]
-        (values (cadr (car var-list)) (cadr (cadr var-list)))
-        (values (cadr (cadr var-list)) (cadr (car var-list))))))
+(define-values (template input-file output-path)
+  (let [(args (vector->list (current-command-line-arguments))) (args-hash (arguments args (length args)))]
+	(list (hash-ref arg-hash "-t") (hash-ref arg-hash "-i") (hash-ref arg-hash "-o"))))
+(define (read-tag lines name)
+  (let [(clean-str (string-split))]
+     (string-append
+      (cond [(string=? (string-append name '#\#) (car clean-str)) ""]
+            [((>= (length (string->list (car clean-str))) 2) and (char=? '#\# (car (string->list (car clean-str)))))
+             (let [(type (list->string(cdr (string->list (car clean-str)))))]
+             (text-to-html ((read-tag (cdr lines) type)) type (cdr clean-str)))]
+            [else (string-append (car lines) (read-tag (cdr lines) name))]))))
 
-(define (read-input-file lines name state)
-  (let [(clean-str (car (string-split (car lines))))]
-    (if [= state 1]
-      (if [string=? clean-str (string-append name "#")]
-          ""
-          (string-append (car lines)  "\n" (read-input-file (cdr lines) name state) ))
-      (if [string=? clean-str (string-append "#" name)]
-          (read-input-file (cdr lines) name 1)
-          (read-input-file (cdr lines) name state)))))
 
+;;(define (read-section lines name )
+;;  (let [(clean-str (string-split lines))]
+;;    (if [string=? (string-append name '#\#) (car clean-str)]
+;;        ""
+
+(define (read-input-file lines name)
+  (let [(clean-str (string-split (car lines)))]
+    (if [string=? "" name]
+        (if [string=? (car (string->list (car clean-str))) '#\#]
+            (read-input-file (cdr lines) (cadr clean-str)
 (define (attributes-to-html attributes)
   (if [false? attributes]
       ""
@@ -56,18 +57,6 @@
 (define (text-to-html text type . attributes)
  (let [(attr (and (pair? (car attributes)) (car attributes)))]
   (string-append "<" type " " (attributes-to-html attr) ">" text (string-append "</" type ">" "\n"))))
-(define (read-define lines)
-  (let [(clean-str (string-split (car lines)))]
-    (if [string=? (car clean-str) "define#"]
-        (list (entry "rest" (cdr lines)))
-        (if [< (length clean-str) 2]
-            (error 'define "Wrong Variable Definition")
-            (cons
-             (entry
-              (car clean-str)
-              (text-to-html
-               (read-input-file (file->lines input-file) (car clean-str) 0) (cadr clean-str) (cddr clean-str)))
-             (read-define (cdr lines)))))))
 (define (read-dynamic lines text defines)
   (let [(clean-str (string-split (car lines)))]
     (if [>  (length clean-str) 1]
@@ -98,7 +87,5 @@
   (if [null? path]
       (display text (open-output-file "./file.html" #:mode 'text #:exists 'replace))
       (display text (open-output-file (car path) 'text 'replace))))
-
-
-(define defines (for/reducer into-hash  ([entr (in-list (read-define (cdr (file->lines template))))]) entr))
-(write-all (read-static (cdr (hash-ref defines "rest")) ""))
+(define defines (for/reducer into-hash  ([entr (in-list  entr)])))
+(write-all (read-static (cdr (hash-ref defines "rest")) (or output-file "")))
