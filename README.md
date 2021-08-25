@@ -1,6 +1,6 @@
 # Introduction
-HTE(Html Template Exporter) a tool used for exporting an html file by
-taking a static html with an unstatic section wich contains variables
+TTH(Template To HTML) is a tool used for exporting an html file by
+taking a static html with an unstatic section which contains variables
 and the program arguments which will be replaced with varibles in their
 specific places.
 # Running HTE
