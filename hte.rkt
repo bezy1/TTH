@@ -11,44 +11,67 @@
   (error 'Usage "hte -t <TEMPLATE> -i <INPUT-FILE> -o <File-Name>"))
 (define (arguments args args-number)
   (if [null? args]
-	(make-hash)
-	(if [< n 4] 
-		 (if [even? args-number]
-		   (hash-union
-			 (cond  [(string=? (car args) "-t") 
-				   (if [file-exists? (cadr args)] (make-immutable-hash (car args) (cadr args)) (error 'File (format "~a Doesn't Exist" (cadr args))))]
-				  [(string=? (car args) "-i") 
-				   (if [file-exists? (cadr args)] (make-immutable-hash (car args) (cadr args)) (error 'File (format "~a Doesn't Exist" (cadr args))))]
-				  [(string=? (car args) "-o") (make-immutable-hash (car args) (cadr args))]))
-			 (arguments (cdr args-list) args-number))
-		 (help))))
+      (make-hash)
+      (if [< n 4]
+          (if [even? args-number]
+              (hash-union
+               (cond  [(string=? (car args) "-t")
+                       (if [file-exists? (cadr args)] (make-immutable-hash (car args) (cadr args)) (error 'File (format "~a Doesn't Exist" (cadr args))))]
+                      [(string=? (car args) "-i")
+                       (if [file-exists? (cadr args)] (make-immutable-hash (car args) (cadr args)) (error 'File (format "~a Doesn't Exist" (cadr args))))]
+                      [(string=? (car args) "-o") (make-immutable-hash (car args) (cadr args))]))
+              (arguments (cdr args-list) args-number))
+          (help))))
 
-		 	
 ; If The First Element of the list is the template file return the list
 ; other wise flip the list and return it
 (define-values (template input-file output-path)
   (let [(args (vector->list (current-command-line-arguments))) (args-hash (arguments args (length args)))]
-	(list (hash-ref arg-hash "-t") (hash-ref arg-hash "-i") (hash-ref arg-hash "-o"))))
+    (list (hash-ref arg-hash "-t") (hash-ref arg-hash "-i") (hash-ref arg-hash "-o"))))
+
+(define (string-list->string string-list)
+    (if [null? string-list]
+        ""
+        (string-append (car string-list) (string-list->string (cdr string-list)))))
+
+(define (all-but-last l)
+  (if [null? (cdr l)]
+      '()
+      (cons (car l) (all-but-last (cdr l)))))
+
+(define (read-section lines name )
+  (let [(clean-str (string-split (car lines)))]
+    (if [string=? (string-append name "#") (car clean-str)]
+        (list (cdr lines))
+        (if [(and (>= (length (string->list (car clean-str))) 2) (char=? (car (string->list(car clean-str))) '#\#))]
+            (let [(tag (read-tag (cdr lines) (clean-str)))]
+              (string-append
+               (text-to-html
+                (cadr tag) (list->string (cdr (string->list (car clean-str)))) (cdr clean-str))
+               (read-section (cdr tag) name)))
+            (error 'Syntax (format "~a Wrong Syntax" (car clean-str)))))))
+;; The Problem Now Is here
+;; Car violition when lines gets empty which isn't supposed to happen
 (define (read-tag lines name)
-  (let [(clean-str (string-split))]
-     (string-append
-      (cond [(string=? (string-append name '#\#) (car clean-str)) ""]
-            [((>= (length (string->list (car clean-str))) 2) and (char=? '#\# (car (string->list (car clean-str)))))
-             (let [(type (list->string(cdr (string->list (car clean-str)))))]
-             (text-to-html ((read-tag (cdr lines) type)) type (cdr clean-str)))]
-            [else (string-append (car lines) (read-tag (cdr lines) name))]))))
-
-
-;;(define (read-section lines name )
-;;  (let [(clean-str (string-split lines))]
-;;    (if [string=? (string-append name '#\#) (car clean-str)]
-;;        ""
+  (if [equal? (length lines) 0]
+      (error 'Section "Uncompleted Section")
+      (let [(clean-str (string-split (car lines)))]
+        (cond [(string=? (string-append name "#") (car clean-str)) (list (cdr lines))]
+              [(and (>= (length (string->list (car clean-str))) 2) (char=? '#\# (car (string->list (car clean-str)))))
+               (let* [(type (list->string (cdr (string->list (car clean-str)))))
+                      (tag (read-tag (cdr lines) type))]
+                 (cons (string-append
+                        (text-to-html (string-list->string (all-but-last tag)) type (cdr clean-str))
+                        "\n")
+                       (read-tag (list-ref tag (- (length tag)1)) type)))]
+              [else (cons (string-append (car lines) "\n")) (read-tag (cdr lines) name)]))))
 
 (define (read-input-file lines name)
   (let [(clean-str (string-split (car lines)))]
     (if [string=? "" name]
         (if [string=? (car (string->list (car clean-str))) '#\#]
             (read-input-file (cdr lines) (cadr clean-str)
+
 (define (attributes-to-html attributes)
   (if [false? attributes]
       ""
